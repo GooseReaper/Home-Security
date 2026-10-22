@@ -50,7 +50,7 @@ You can change these per home in the `modes:` section of your config. A recognis
 
 ## Modules
 
-Add-ons such as the network ad blocker live in `src/homecontrol/modules/<name>/`. A module is turned on by giving it a section under `modules:` in the home config, and it exposes `status(settings, home)` (plus an optional `install`). Its health shows on the dashboard.
+Add-ons such as the network ad blocker and the malware scanner (virus, trojan and rootkit checks on every home computer, see `src/homecontrol/modules/malware/`) live in `src/homecontrol/modules/<name>/`. A module is turned on by giving it a section under `modules:` in the home config, and it exposes `status(settings, home)` (plus an optional `install`). Its health shows on the dashboard.
 
 ## Privacy
 

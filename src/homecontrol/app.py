@@ -74,6 +74,11 @@ def create_app(config: Config, ha: HomeAssistant | None = None, background: bool
                 asyncio.create_task(_watch_states(ha, security, watched)),
                 asyncio.create_task(mqtt.listen(config.mqtt, security.handle)),
             ]
+            # Modules that need to keep listening, e.g. for malware reports.
+            for name, module in modules.items():
+                if hasattr(module, "background"):
+                    tasks.append(asyncio.create_task(
+                        module.background(config.modules.get(name, {}), config, security.handle)))
         yield
         for task in tasks:
             task.cancel()
