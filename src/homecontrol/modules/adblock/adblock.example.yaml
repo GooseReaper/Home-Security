@@ -1,0 +1,46 @@
+# Ad blocker section for config/home.yaml.
+# Paste this under `modules:` in your home.yaml, then fill in the blanks.
+# Values marked REQUIRED must be filled in; everything else has a default.
+
+adblock:
+  enabled: true
+
+  # --- Network (REQUIRED) ---------------------------------------------------
+  # Your router's address, usually on the router sticker
+  # (e.g. 192.168.1.1, 192.168.0.1 or 10.0.0.1).
+  router_ip: ""            # REQUIRED
+
+  # The fixed address the Pi should always have. Same range as the router,
+  # not used by anything else (e.g. router 192.168.1.1 -> Pi 192.168.1.53).
+  pi_ip: ""                # REQUIRED
+
+  # How the Pi keeps that address:
+  #   router = you reserve it in the router's DHCP settings (recommended)
+  #   pi     = the installer sets a static IP on the Pi itself
+  static_ip_method: router
+  network_prefix: 24       # 24 = 255.255.255.0, right for almost every home
+  interface: eth0          # eth0 for Ethernet, wlan0 for Wi-Fi
+
+  # --- Dashboard login ------------------------------------------------------
+  admin_username: admin
+  # Leave blank to be asked at install time (keeps it out of this file), or set
+  # the ADBLOCK_ADMIN_PASSWORD environment variable. status() also needs it to
+  # read the stats, so set the env var on the machine running the control app.
+  admin_password: ""
+  web_port: 80             # Dashboard at http://<pi_ip>:<web_port>
+
+  # --- Where allowed lookups go (encrypted DNS-over-HTTPS) -----------------
+  upstream_dns:
+    - https://dns.quad9.net/dns-query
+    - https://cloudflare-dns.com/dns-query
+  bootstrap_dns: [9.9.9.9, 1.1.1.1]
+
+  # --- Block lists (AdGuard's own DNS filter is always on) -----------------
+  blocklists:
+    - name: Steven Black hosts (ads + malware)
+      url: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    - name: OISD small
+      url: https://small.oisd.nl/
+
+  # Sites that should never be blocked (e.g. if a shopping link breaks).
+  allowlist: []

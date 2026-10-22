@@ -1,0 +1,92 @@
+# Copy to config/home.yaml and edit for each home. One file per home.
+home:
+  name: Main house
+  timezone: America/New_York
+
+home_assistant:
+  url: http://localhost:8123
+  # Create under your HA profile > Security > Long-lived access tokens.
+  # Can also be set with the HC_HA_TOKEN environment variable.
+  token: ""
+
+mqtt:
+  host: localhost
+  port: 1883
+  username: ""
+  password: ""
+
+# Map rooms to Home Assistant entity ids. Anything not listed is still
+# visible in the dashboard, this just groups and labels things.
+rooms:
+  - name: Front door
+    cameras: [camera.front_door]
+    locks: [lock.front_door]
+    sensors: [binary_sensor.front_door_contact]
+  - name: Living room
+    lights: [light.living_room]
+    sensors: [binary_sensor.living_room_wifi_motion]
+
+# What each security mode does.
+modes:
+  home:
+    alert_on: []
+  night:
+    alert_on: [person, door_open]
+    lock_all: true
+  away:
+    alert_on: [person, door_open, motion, unknown_face]
+    lock_all: true
+    lights_off: true
+
+alerts:
+  # Home Assistant notify services, e.g. the mobile app.
+  notify_services: [notify.mobile_app_phone]
+  # Frigate labels that count as a "person" detection.
+  person_labels: [person]
+  min_score: 0.7
+
+# Optional add-on modules. Each one has its own README in
+# src/homecontrol/modules/<name>/.
+modules:
+  adblock:
+    enabled: false          # set to true once the Pi is ready
+
+    # --- Network (REQUIRED) ---------------------------------------------------
+    # Your router's address, usually on the router sticker
+    # (e.g. 192.168.1.1, 192.168.0.1 or 10.0.0.1).
+    router_ip: ""            # REQUIRED
+
+    # The fixed address the Pi should always have. Same range as the router,
+    # not used by anything else (e.g. router 192.168.1.1 -> Pi 192.168.1.53).
+    pi_ip: ""                # REQUIRED
+
+    # How the Pi keeps that address:
+    #   router = you reserve it in the router's DHCP settings (recommended)
+    #   pi     = the installer sets a static IP on the Pi itself
+    static_ip_method: router
+    network_prefix: 24       # 24 = 255.255.255.0, right for almost every home
+    interface: eth0          # eth0 for Ethernet, wlan0 for Wi-Fi
+
+    # --- Dashboard login ------------------------------------------------------
+    admin_username: admin
+    # Leave blank to be asked at install time (keeps it out of this file), or set
+    # the ADBLOCK_ADMIN_PASSWORD environment variable. status() also needs it to
+    # read the stats, so set the env var on the machine running the control app.
+    admin_password: ""
+    web_port: 80             # Dashboard at http://<pi_ip>:<web_port>
+
+    # --- Where allowed lookups go (encrypted DNS-over-HTTPS) -----------------
+    upstream_dns:
+      - https://dns.quad9.net/dns-query
+      - https://cloudflare-dns.com/dns-query
+    bootstrap_dns: [9.9.9.9, 1.1.1.1]
+
+    # --- Block lists (AdGuard's own DNS filter is always on) -----------------
+    blocklists:
+      - name: Steven Black hosts (ads + malware)
+        url: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+      - name: OISD small
+        url: https://small.oisd.nl/
+
+    # Sites that should never be blocked (e.g. if a shopping link breaks).
+    allowlist: []

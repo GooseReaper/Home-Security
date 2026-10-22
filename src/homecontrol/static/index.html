@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Control</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1c1f24; --muted:#6b7280; --line:#e3e5e9; --accent:#2563eb; --alert:#dc2626; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111317; --card:#1b1e24; --text:#e8eaed; --muted:#9aa0a6; --line:#2c3038; --accent:#60a5fa; --alert:#f87171; --ok:#4ade80; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--line); }
+  h1 { font-size:20px; margin:0; }
+  main { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:16px; padding:16px; }
+  @media (max-width: 800px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin:0 0 10px; }
+  .modes button { border:1px solid var(--line); background:var(--card); color:var(--text); padding:6px 14px; border-radius:999px; cursor:pointer; text-transform:capitalize; }
+  .modes button.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .device { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px solid var(--line); gap:8px; }
+  .device:first-of-type { border-top:0; }
+  .state { color:var(--muted); font-size:13px; }
+  .device button { border:1px solid var(--line); background:transparent; color:var(--text); border-radius:6px; padding:3px 10px; cursor:pointer; }
+  .cams { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:10px; }
+  .cams img { width:100%; border-radius:8px; background:var(--line); aspect-ratio:16/9; object-fit:cover; }
+  .event { padding:6px 0; border-top:1px solid var(--line); font-size:13px; }
+  .event time { color:var(--muted); margin-right:6px; }
+  .event.alert { color:var(--alert); font-weight:600; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:var(--muted); }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--alert); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="home">Home Control</h1>
+  <div class="modes" id="modes"></div>
+  <div id="health" class="state"></div>
+</header>
+<main>
+  <section>
+    <div class="card"><h2>Cameras</h2><div class="cams" id="cams"></div></div>
+    <div id="rooms"></div>
+  </section>
+  <aside>
+    <div class="card"><h2>Modules</h2><div id="modules" class="state">None configured</div></div>
+    <div class="card"><h2>Activity</h2><div id="events"></div></div>
+  </aside>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); n.append(...kids); return n; };
+const api = (path, body) => fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}).then(r => r.ok ? r.json() : Promise.reject(r));
+
+const ACTIONS = {
+  light: s => s === "on" ? ["light", "turn_off", "Turn off"] : ["light", "turn_on", "Turn on"],
+  lock: s => s === "locked" ? ["lock", "unlock", "Unlock"] : ["lock", "lock", "Lock"],
+};
+
+async function loadStatus() {
+  const s = await api("/api/status");
+  $("home").textContent = s.home;
+  $("modes").replaceChildren(...s.modes.map(m => {
+    const b = el("button", { textContent: m, className: m === s.mode ? "active" : "" });
+    b.onclick = async () => { await api("/api/mode", { mode: m }); loadStatus(); };
+    return b;
+  }));
+  $("health").replaceChildren(el("span", { className: "dot " + (s.home_assistant ? "ok" : "bad") }), "Home Assistant");
+  const mods = Object.entries(s.modules);
+  if (mods.length) $("modules").replaceChildren(...mods.map(([name, m]) =>
+    el("div", { className: "device" }, el("span", {}, el("span", { className: "dot " + (m.ok ? "ok" : "bad") }), name), el("span", { className: "state", textContent: m.summary }))));
+}
+
+async function loadRooms() {
+  let rooms;
+  try { rooms = await api("/api/rooms"); } catch { $("rooms").replaceChildren(el("div", { className: "card state", textContent: "Can't reach Home Assistant. Check the URL and token in your home config." })); return; }
+  const cams = [];
+  $("rooms").replaceChildren(...rooms.map(room => el("div", { className: "card" }, el("h2", { textContent: room.name }),
+    ...room.devices.map(d => {
+      if (d.kind === "camera") cams.push(d);
+      const row = el("div", { className: "device" }, el("span", { textContent: d.name }));
+      const right = el("span", {}, el("span", { className: "state", textContent: d.state + " " }));
+      const action = ACTIONS[d.kind] && ACTIONS[d.kind](d.state);
+      if (action) {
+        const b = el("button", { textContent: action[2] });
+        b.onclick = async () => { await api("/api/service", { domain: action[0], service: action[1], entity_id: d.entity_id }); setTimeout(loadRooms, 800); };
+        right.append(b);
+      }
+      row.append(right);
+      return row;
+    }))));
+  $("cams").replaceChildren(...cams.map(c => el("figure", { style: "margin:0" },
+    el("img", { src: `/api/cameras/${encodeURIComponent(c.entity_id)}/snapshot?t=${Date.now()}`, alt: c.name }),
+    el("figcaption", { className: "state", textContent: c.name }))));
+}
+
+function addEvent(e, prepend = true) {
+  const row = el("div", { className: "event" + (e.kind === "alert" ? " alert" : "") },
+    el("time", { textContent: new Date(e.time).toLocaleTimeString() }), e.message);
+  prepend ? $("events").prepend(row) : $("events").append(row);
+  while ($("events").children.length > 100) $("events").lastChild.remove();
+}
+
+async function start() {
+  await loadStatus();
+  loadRooms();
+  (await api("/api/events")).forEach(e => addEvent(e, false));
+  const connect = () => {
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+    ws.onmessage = m => { const e = JSON.parse(m.data); addEvent(e); if (e.kind === "mode") loadStatus(); };
+    ws.onclose = () => setTimeout(connect, 3000);
+  };
+  connect();
+  setInterval(loadRooms, 15000);
+}
+start();
+</script>
+</body>
+</html>

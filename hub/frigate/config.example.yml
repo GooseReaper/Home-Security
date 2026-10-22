@@ -1,0 +1,27 @@
+mqtt:
+  host: mosquitto
+  port: 1883
+
+detectors:
+  cpu:
+    type: cpu
+
+cameras:
+  front_door:
+    ffmpeg:
+      inputs:
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@CAMERA_IP:554/stream1
+          roles: [detect, record]
+    detect:
+      width: 1280
+      height: 720
+    objects:
+      track: [person, car, dog, cat]
+
+record:
+  enabled: true
+  retain:
+    days: 7
+
+face_recognition:
+  enabled: true
