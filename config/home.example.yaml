@@ -5,15 +5,30 @@ home:
 
 home_assistant:
   url: http://localhost:8123
-  # Create under your HA profile > Security > Long-lived access tokens.
+  # Make a separate non-admin Home Assistant user for this app and create
+  # the token under that user's profile > Security > Long-lived access tokens.
   # Can also be set with the HC_HA_TOKEN environment variable.
   token: ""
 
 mqtt:
   host: localhost
   port: 1883
-  username: ""
-  password: ""
+  # The read-only "homecontrol" user from hub/mosquitto/acl.
+  username: homecontrol
+  password: ""             # or set HC_MQTT_PASSWORD
+
+# The dashboard can unlock doors, so it always needs a password.
+dashboard:
+  # Paste the output of `python -m homecontrol hash-password` here, or set
+  # the HC_DASHBOARD_PASSWORD environment variable.
+  password_hash: ""
+  # Names the dashboard answers to. Add the hub's LAN or Tailscale name if you
+  # open it beyond this computer.
+  allowed_hosts: [localhost, 127.0.0.1]
+  session_hours: 12
+
+# The current mode is saved here so a restart or power cut doesn't disarm.
+state_file: state/homecontrol.json
 
 # Map rooms to Home Assistant entity ids. Anything not listed is still
 # visible in the dashboard, this just groups and labels things.
@@ -31,10 +46,10 @@ modes:
   home:
     alert_on: []
   night:
-    alert_on: [person, door_open]
+    alert_on: [person, door_open, offline]
     lock_all: true
   away:
-    alert_on: [person, door_open, motion, unknown_face]
+    alert_on: [person, door_open, motion, unknown_face, offline]
     lock_all: true
     lights_off: true
 
@@ -44,6 +59,11 @@ alerts:
   # Frigate labels that count as a "person" detection.
   person_labels: [person]
   min_score: 0.7
+  # Face matches below this score count as an unknown person.
+  min_face_score: 0.8
+  # Still tell you when a known face shows up in Away mode, since a photo or
+  # lookalike can fool face recognition.
+  notify_known_faces: true
 
 # Optional add-on modules. Each one has its own README in
 # src/homecontrol/modules/<name>/.

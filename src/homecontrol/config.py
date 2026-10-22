@@ -27,6 +27,18 @@ class MqttConfig(BaseModel):
     password: str = ""
 
 
+class DashboardConfig(BaseModel):
+    # Hash from `python -m homecontrol hash-password`. The HC_DASHBOARD_PASSWORD
+    # environment variable is used instead when set. The app won't start
+    # without one of them.
+    password_hash: str = ""
+    # Host names the dashboard answers to. Requests for any other Host are
+    # refused, which blocks DNS rebinding attacks. Add the hub's LAN or
+    # Tailscale name here if you open the dashboard beyond this computer.
+    allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
+    session_hours: float = 12
+
+
 class Room(BaseModel):
     name: str
     cameras: list[str] = Field(default_factory=list)
@@ -40,7 +52,7 @@ class Room(BaseModel):
 
 class ModeConfig(BaseModel):
     # Event kinds that raise an alert in this mode: person, door_open,
-    # motion, unknown_face.
+    # motion, unknown_face, offline (a camera, lock or sensor dropped off).
     alert_on: list[str] = Field(default_factory=list)
     lock_all: bool = False
     lights_off: bool = False
@@ -50,14 +62,19 @@ class AlertConfig(BaseModel):
     notify_services: list[str] = Field(default_factory=list)
     person_labels: list[str] = Field(default_factory=lambda: ["person"])
     min_score: float = 0.7
+    # A face match below this score counts as an unknown person.
+    min_face_score: float = 0.8
+    # Faces can be faked (a photo, a lookalike), so in modes that alert on
+    # unknown faces a recognised face is still reported, just not as an intruder.
+    notify_known_faces: bool = True
 
 
 def _default_modes() -> dict[str, ModeConfig]:
     return {
         "home": ModeConfig(),
-        "night": ModeConfig(alert_on=["person", "door_open"], lock_all=True),
+        "night": ModeConfig(alert_on=["person", "door_open", "offline"], lock_all=True),
         "away": ModeConfig(
-            alert_on=["person", "door_open", "motion", "unknown_face"],
+            alert_on=["person", "door_open", "motion", "unknown_face", "offline"],
             lock_all=True,
             lights_off=True,
         ),
@@ -71,6 +88,11 @@ class Config(BaseModel):
     rooms: list[Room] = Field(default_factory=list)
     modes: dict[str, ModeConfig] = Field(default_factory=_default_modes)
     alerts: AlertConfig = Field(default_factory=AlertConfig)
+    dashboard: DashboardConfig = Field(default_factory=DashboardConfig)
+    # Where the current security mode is saved so a restart or power cut
+    # doesn't silently disarm the house. Relative paths are from the
+    # directory the app is started in.
+    state_file: str = "state/homecontrol.json"
     # Settings for optional add-on modules (ad blocker, Wi-Fi sensing, ...),
     # keyed by module name. Each module validates its own section.
     modules: dict[str, dict[str, Any]] = Field(default_factory=dict)
@@ -87,4 +109,8 @@ def load_config(path: str | Path) -> Config:
         config.home_assistant.token = token
     if password := os.environ.get("HC_MQTT_PASSWORD"):
         config.mqtt.password = password
+    if password := os.environ.get("HC_DASHBOARD_PASSWORD"):
+        from .auth import hash_password
+
+        config.dashboard.password_hash = hash_password(password)
     return config

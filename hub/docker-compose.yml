@@ -18,10 +18,14 @@ services:
     image: eclipse-mosquitto:2
     container_name: mosquitto
     restart: unless-stopped
+    # Only this computer (Home Assistant, the control app) can reach MQTT.
+    # Frigate connects over the Docker network. If ESP32 nodes need MQTT,
+    # change to "<hub LAN IP>:1883:1883" and firewall it to the IoT network.
     ports:
-      - "1883:1883"
+      - "127.0.0.1:1883:1883"
     volumes:
-      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      # Holds mosquitto.conf, acl and the gitignored passwd file.
+      - ./mosquitto:/mosquitto/config
       - ./data/mosquitto:/mosquitto/data
 
   frigate:
@@ -31,10 +35,16 @@ services:
     shm_size: "256mb"
     env_file: .env
     ports:
-      - "5000:5000"
-      - "8554:8554"
+      # 8971 is the web UI with a login. 5000 is the unauthenticated API, so
+      # only this computer (Home Assistant's Frigate integration) can use it.
+      - "8971:8971"
+      - "127.0.0.1:5000:5000"
+      # Camera restream, password protected (see go2rtc in the config).
+      - "127.0.0.1:8554:8554"
     volumes:
       - ./frigate/config.yml:/config/config.yml  # copy from config.example.yml
       - ./data/frigate:/media/frigate
       - /etc/localtime:/etc/localtime:ro
     # For a Coral TPU or GPU, see the Frigate docs on detectors.
+    # Never forward any of these ports on your router. Use Tailscale or
+    # WireGuard for remote access.

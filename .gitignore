@@ -1,8 +1,29 @@
 __pycache__/
 *.egg-info/
 .venv/
-.env
-config/home.yaml
-hub/.env
-hub/data/
 .ruff_cache/
+.pytest_cache/
+
+# Secrets and per-home config. Only *.example files are committed.
+.env
+*.env
+!.env.example
+config/*
+!config/*.example.yaml
+hub/.env
+hub/frigate/config.yml
+hub/mosquitto/passwd
+*.pem
+*.key
+*.crt
+
+# Runtime data: recordings, snapshots, faces, saved state.
+hub/data/
+state/
+faces/
+*.db
+*.sqlite
+*.jpg
+*.jpeg
+*.png
+*.mp4

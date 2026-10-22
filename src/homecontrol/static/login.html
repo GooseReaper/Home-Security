@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Control login</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1c1f24; --muted:#6b7280; --line:#e3e5e9; --accent:#2563eb; --alert:#dc2626; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111317; --card:#1b1e24; --text:#e8eaed; --muted:#9aa0a6; --line:#2c3038; --accent:#60a5fa; --alert:#f87171; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--text); padding:16px; }
+  form { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; width:100%; max-width:320px; display:grid; gap:12px; }
+  h1 { font-size:20px; margin:0; }
+  input { padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); font:inherit; }
+  button { padding:8px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  #error { color:var(--alert); font-size:13px; min-height:1.2em; margin:0; }
+</style>
+</head>
+<body>
+<form id="form">
+  <h1>Home Control</h1>
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password" required autofocus>
+  <button type="submit">Log in</button>
+  <p id="error" role="alert"></p>
+</form>
+<script>
+document.getElementById("form").onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: document.getElementById("password").value }) });
+  if (r.ok) { location.href = "/"; return; }
+  const body = await r.json().catch(() => ({}));
+  document.getElementById("error").textContent = body.detail || "Login failed";
+};
+</script>
+</body>
+</html>

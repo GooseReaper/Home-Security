@@ -1,6 +1,19 @@
 mqtt:
   host: mosquitto
   port: 1883
+  user: "{FRIGATE_MQTT_USER}"
+  password: "{FRIGATE_MQTT_PASSWORD}"
+
+# Login for the web UI on port 8971 (Frigate 0.14+). The admin password is
+# printed in the Frigate logs on first start; change it in the UI.
+auth:
+  enabled: true
+
+# Password for the camera restream on port 8554.
+go2rtc:
+  rtsp:
+    username: "{FRIGATE_RESTREAM_USER}"
+    password: "{FRIGATE_RESTREAM_PASSWORD}"
 
 detectors:
   cpu:

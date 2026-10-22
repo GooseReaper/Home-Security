@@ -29,6 +29,7 @@
   .event time { color:var(--muted); margin-right:6px; }
   .event.alert { color:var(--alert); font-weight:600; }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:var(--muted); }
+  .logout { border:1px solid var(--line); background:transparent; color:var(--text); border-radius:6px; padding:4px 10px; cursor:pointer; }
   .dot.ok { background:var(--ok); } .dot.bad { background:var(--alert); }
 </style>
 </head>
@@ -37,6 +38,7 @@
   <h1 id="home">Home Control</h1>
   <div class="modes" id="modes"></div>
   <div id="health" class="state"></div>
+  <button id="logout" class="logout">Log out</button>
 </header>
 <main>
   <section>
@@ -51,7 +53,10 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); n.append(...kids); return n; };
-const api = (path, body) => fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}).then(r => r.ok ? r.json() : Promise.reject(r));
+const api = (path, body) => fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}).then(r => {
+  if (r.status === 401) location.href = "/login";
+  return r.ok ? r.json() : Promise.reject(r);
+});
 
 const ACTIONS = {
   light: s => s === "on" ? ["light", "turn_off", "Turn off"] : ["light", "turn_on", "Turn on"],
@@ -102,6 +107,8 @@ function addEvent(e, prepend = true) {
   while ($("events").children.length > 100) $("events").lastChild.remove();
 }
 
+$("logout").onclick = async () => { await api("/api/logout", {}); location.href = "/login"; };
+
 async function start() {
   await loadStatus();
   loadRooms();
@@ -109,7 +116,7 @@ async function start() {
   const connect = () => {
     const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
     ws.onmessage = m => { const e = JSON.parse(m.data); addEvent(e); if (e.kind === "mode") loadStatus(); };
-    ws.onclose = () => setTimeout(connect, 3000);
+    ws.onclose = e => e.code === 1008 ? (location.href = "/login") : setTimeout(connect, 3000);
   };
   connect();
   setInterval(loadRooms, 15000);
