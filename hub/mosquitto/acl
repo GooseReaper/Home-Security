@@ -1,0 +1,22 @@
+# Who may read and write which MQTT topics. Only usernames live here, no
+# passwords. Anything not listed is denied.
+
+# Frigate is the only client allowed to publish detections, so nobody else on
+# the network can fake an event (for example a "known face" to silence alerts).
+user frigate
+topic readwrite frigate/#
+
+# Home Assistant reads Frigate, switches Frigate features on and off, and
+# handles MQTT discovery for sensors.
+user homeassistant
+topic readwrite #
+
+# The control app only listens.
+user homecontrol
+topic read frigate/events
+
+# ESP32 / Wi-Fi sensing nodes, if they use MQTT. Give each node this account
+# (or one each) and keep them on the IoT network.
+user sensors
+topic readwrite sensors/#
+topic write homeassistant/#

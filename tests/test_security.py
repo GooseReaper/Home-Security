@@ -8,6 +8,7 @@ from homecontrol.mqtt import parse_frigate_event
 from homecontrol.security import SecurityManager, classify, should_alert
 
 CONFIG = load_config(Path(__file__).parent.parent / "config" / "home.example.yaml")
+CONFIG.state_file = ""
 
 
 class FakeHA:
@@ -21,10 +22,10 @@ class FakeHA:
         self.calls.append(("notify", service, title))
 
 
-def frigate(label="person", score=0.9, face=None, type_="new"):
+def frigate(label="person", score=0.9, face=None, type_="new", face_score=0.95):
     after = {"label": label, "camera": "front_door", "top_score": score, "id": "1"}
     if face:
-        after["sub_label"] = [face, 0.95]
+        after["sub_label"] = [face, face_score]
     return {"type": type_, "after": after}
 
 
@@ -32,11 +33,13 @@ def test_parse_frigate_only_new():
     assert parse_frigate_event(frigate(type_="update")) is None
     event = parse_frigate_event(frigate(face="Goose"))
     assert event.data["face"] == "Goose"
+    assert event.data["face_score"] == 0.95
 
 
 @pytest.mark.parametrize("payload,expected", [
     (frigate(), "person"),
     (frigate(face="Goose"), "known_face"),
+    (frigate(face="Goose", face_score=0.5), "person"),
     (frigate(label="car"), "motion"),
     (frigate(score=0.3), None),
 ])
@@ -55,7 +58,17 @@ def test_alert_rules_by_mode():
     assert should_alert("person", "night", CONFIG)
     assert not should_alert("motion", "night", CONFIG)
     assert should_alert("motion", "away", CONFIG)
-    assert not should_alert("known_face", "away", CONFIG)
+    assert not should_alert("known_face", "night", CONFIG)
+    # Faces can be faked, so Away mode still reports known faces.
+    assert should_alert("known_face", "away", CONFIG)
+    assert should_alert("offline", "away", CONFIG)
+    assert not should_alert("offline", "home", CONFIG)
+
+
+def test_classify_offline():
+    event = Event(kind="state", source="ha", message="",
+                  data={"entity_id": "camera.front_door", "new_state": "unavailable"})
+    assert classify(event, CONFIG) == "offline"
 
 
 async def test_away_mode_locks_and_alerts():
@@ -74,3 +87,19 @@ async def test_bad_mode_rejected():
     security = SecurityManager(CONFIG, FakeHA(), EventLog())
     with pytest.raises(ValueError):
         await security.set_mode("party")
+
+
+async def test_mode_survives_restart(tmp_path):
+    config = CONFIG.model_copy(update={"state_file": str(tmp_path / "state.json")})
+    await SecurityManager(config, FakeHA(), EventLog()).set_mode("away")
+    log = EventLog()
+    restored = SecurityManager(config, FakeHA(), log)
+    assert restored.mode == "away"
+    assert "restored" in log.recent(1)[0].message
+
+
+def test_damaged_state_file_starts_armed(tmp_path):
+    state = tmp_path / "state.json"
+    state.write_text("{not json")
+    config = CONFIG.model_copy(update={"state_file": str(state)})
+    assert SecurityManager(config, FakeHA(), EventLog()).mode == "away"

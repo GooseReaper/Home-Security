@@ -28,10 +28,13 @@ def parse_frigate_event(payload: dict) -> Event | None:
     score = float(after.get("top_score") or after.get("score") or 0)
     data = {"label": label, "camera": camera, "score": score, "id": after.get("id")}
     face = after.get("sub_label")
+    face_score = None
     if isinstance(face, list):  # Frigate sends [name, score]
-        face = face[0] if face else None
+        face, face_score = (face + [None, None])[:2]
     if face:
         data["face"] = face
+        if face_score is not None:
+            data["face_score"] = float(face_score)
     message = f"{label} seen on {camera}" + (f" ({face})" if face else "")
     return Event(kind="detection", source="frigate", message=message, data=data)
 
