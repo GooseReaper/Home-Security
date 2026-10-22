@@ -41,6 +41,8 @@ adblock:
       url: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
     - name: OISD small
       url: https://small.oisd.nl/
+    - name: URLhaus (malware download sites)
+      url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_11.txt
 
   # Sites that should never be blocked (e.g. if a shopping link breaks).
   allowlist: []

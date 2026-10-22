@@ -15,6 +15,8 @@ OPEN_STATES = {"on", "open"}
 
 def classify(event: Event, config: Config) -> str | None:
     """Map a raw event to the alert kind that modes refer to."""
+    if event.kind == "malware":
+        return "malware"
     if event.kind == "detection":
         if event.data.get("score", 0) < config.alerts.min_score:
             return None
@@ -39,6 +41,8 @@ def classify(event: Event, config: Config) -> str | None:
 def should_alert(kind: str | None, mode: str, config: Config) -> bool:
     if kind is None:
         return False
+    if kind == "malware":
+        return True  # a virus on a home computer matters in every mode
     mode_config = config.modes.get(mode)
     if mode_config is None:
         return False

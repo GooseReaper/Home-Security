@@ -4,6 +4,8 @@ A module is a package in this folder that exposes:
 
     status(settings: dict, home: dict) -> dict   # must include "ok" and "summary"
     install(settings: dict, home: dict) -> dict  # optional
+    async background(settings: dict, config: Config, emit) -> None  # optional,
+        # runs while the app is up; emit(Event) feeds the alert rules
 
 It is enabled by giving it a section under `modules:` in the home config.
 """

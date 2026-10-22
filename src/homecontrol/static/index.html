@@ -29,6 +29,8 @@
   .event time { color:var(--muted); margin-right:6px; }
   .event.alert { color:var(--alert); font-weight:600; }
   .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:var(--muted); }
+  .finding { font-size:12px; color:var(--alert); padding-left:14px; overflow-wrap:anywhere; }
+  .dot.warn { background:#d97706; }
   .dot.ok { background:var(--ok); } .dot.bad { background:var(--alert); }
 </style>
 </head>
@@ -44,6 +46,7 @@
     <div id="rooms"></div>
   </section>
   <aside>
+    <div class="card" id="computers-card" hidden><h2>Computers</h2><div id="computers"></div></div>
     <div class="card"><h2>Modules</h2><div id="modules" class="state">None configured</div></div>
     <div class="card"><h2>Activity</h2><div id="events"></div></div>
   </aside>
@@ -70,6 +73,14 @@ async function loadStatus() {
   const mods = Object.entries(s.modules);
   if (mods.length) $("modules").replaceChildren(...mods.map(([name, m]) =>
     el("div", { className: "device" }, el("span", {}, el("span", { className: "dot " + (m.ok ? "ok" : "bad") }), name), el("span", { className: "state", textContent: m.summary }))));
+  const hosts = (s.modules.malware || {}).hosts || [];
+  $("computers-card").hidden = !hosts.length;
+  $("computers").replaceChildren(...hosts.map(h => el("div", {},
+    el("div", { className: "device" },
+      el("span", {}, el("span", { className: "dot " + (h.infected ? "bad" : h.ok ? "ok" : "warn") }), h.host),
+      el("span", { className: "state", textContent: h.summary + (h.time ? " · " + new Date(h.time).toLocaleDateString() : "") + (h.stale && h.time ? " (overdue)" : "") })),
+    ...h.findings.map(f => el("div", { className: "finding", textContent: `${f.engine}: ${f.threat}${f.path ? " in " + f.path : ""}` })),
+    ...h.errors.map(e => el("div", { className: "finding state", textContent: e })))));
 }
 
 async function loadRooms() {
@@ -108,7 +119,7 @@ async function start() {
   (await api("/api/events")).forEach(e => addEvent(e, false));
   const connect = () => {
     const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
-    ws.onmessage = m => { const e = JSON.parse(m.data); addEvent(e); if (e.kind === "mode") loadStatus(); };
+    ws.onmessage = m => { const e = JSON.parse(m.data); addEvent(e); if (["mode", "malware", "scan"].includes(e.kind)) loadStatus(); };
     ws.onclose = () => setTimeout(connect, 3000);
   };
   connect();
